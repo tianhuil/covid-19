@@ -17,3 +17,6 @@ ipython:
 
 jupyter:
 	source venv/bin/activate && jupyter notebook
+
+flask:
+	source venv/bin/activate && FLASK_ENV=development FLASK_APP=app flask run
