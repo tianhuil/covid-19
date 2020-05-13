@@ -46,7 +46,6 @@ def create_figure(df):
     return fig
 
 def plot_png_raw(df):
-    df = load_wa_data()
     fig = create_figure(df)
     output = io.BytesIO()
     FigureCanvas(fig).print_png(output)
