@@ -20,3 +20,6 @@ jupyter:
 
 flask:
 	source venv/bin/activate && FLASK_ENV=development FLASK_APP=app flask run
+
+voila:
+	source venv/bin/activate && python -m voila NYTimes_Data_Analysis.ipynb

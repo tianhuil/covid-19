@@ -1,1 +1,1 @@
-web: gunicorn app:app
+web: voila —-port=$PORT --no-browser NYTimes_Data_Analysis.ipynb
