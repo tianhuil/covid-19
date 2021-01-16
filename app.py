@@ -1,3 +1,4 @@
+import datetime
 import time
 from contextlib import contextmanager
 
@@ -12,46 +13,54 @@ matplotlib.rcParams['font.size'] = 18  # Probably OS Dependent
 @contextmanager
 def loading(data_source):
     loading = st.text(f'Loading {data_source} ...')
+    start = datetime.datetime.now()
     yield
-    loading.text(f'Loading {data_source} ... Done!')
-
-@st.cache
-def load_wa_data(day):
-    US_DIR = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
-    df_whole = pd.read_csv(US_DIR)
-
-    df = df_whole.loc[df_whole['state'] == 'Washington', :].set_index('date')
-    df.loc[:, 'delta_cases'] = df['cases'] - df['cases'].shift()
-    return df
-
-@st.cache
-def load_king_data(day):
-    US_DIR = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
-    df_whole = pd.read_csv(US_DIR)
-
-    df = df_whole[(df_whole['state'] == 'Washington') & (df_whole['county'] == 'King')].set_index('date')
-    df.loc[:, 'delta_cases'] = df['cases'] - df['cases'].shift()
-    return df
+    end = datetime.datetime.now()
+    loading.text(f'Loading {data_source} ... Done in {(end - start).total_seconds()} seconds!')
 
 def plot_df(df):
     series = df.set_index('cases')['delta_cases']
+    fig, ax = plt.subplots()
     pd.DataFrame({
-        'rolling-7': series.rolling(7).mean(),
-        'ewm-7': series.ewm(7).mean(),
         'new cases': series,
-    }).plot(loglog=True)
-    st.pyplot()
+        'rolling-7': series.rolling(7).mean(),
+        'ewm-7': series.ewm(6).mean(),
+    }).reindex(columns=['new cases', 'rolling-7', 'ewm-7']).plot(loglog=True, ax=ax)
+    st.pyplot(fig)
 
-# days since epoch
-day = (time.time() // (24 * 60 * 60))
+def select_column(df, col, default=None, key=None):
+    states = sorted(df[col].unique())
+    if default:
+        default_index = states.index(default)
+        option = st.selectbox(f'Select {col}', states,  default_index, key=key)
+    else:
+        option = st.selectbox(f'Select {col}', states, key=key)
+    return option, df[df[col] == option]
 
-with loading('Washington State Data'):
-    df = load_wa_data(day)
-st.header('Washington State Log-Log Plot')
-plot_df(df)
+
+@st.cache
+def load_data(file):
+    US_DIR = f'https://raw.githubusercontent.com/nytimes/covid-19-data/master/{file}'
+    return pd.read_csv(US_DIR)
+
+with loading('State Data'):
+    df = load_data('us-states.csv')
+
+state, df_state = select_column(df, 'state', default='Washington', key=1)
+
+df_state = df_state.set_index('date')
+df_state.loc[:, 'delta_cases'] = df_state['cases'] - df_state['cases'].shift()
+st.header(f'{state} State Log-Log Plot')
+plot_df(df_state)
 
 
-with loading('King County Data'):
-    df = load_king_data(day)
-st.header('King County Log-Log Plot')
-plot_df(df)
+with loading('County Data'):
+    df = load_data('us-counties.csv')
+
+state, df_state = select_column(df, 'state', default='Washington', key=2)
+county, df_county = select_column(df_state, 'county', default='King' if state == 'Washington' else None, key=3)
+
+df_county = df_county.set_index('date', 'state')
+df_county.loc[:, 'delta_cases'] = df_county['cases'] - df_county['cases'].shift()
+st.header(f'{state}, {county} State Log-Log Plot')
+plot_df(df_county)
